@@ -564,13 +564,18 @@ VASTParser = (function() {
     parentURLs.push(url);
     return URLHandler.get(url, (function(_this) {
       return function(err, xml) {
-        var ad, complete, loopIndex, node, response, _j, _k, _len1, _len2, _ref, _ref1;
+        var ad, complete, loopIndex, node, response, vastVersion, _j, _k, _len1, _len2, _ref, _ref1;
         if (err != null) {
           return cb(err);
         }
         response = new VASTResponse();
+        vastVersion = 2;
         if (!(((xml != null ? xml.documentElement : void 0) != null) && xml.documentElement.nodeName === "VAST")) {
-          return cb();
+          if (((xml != null ? xml.documentElement : void 0) != null) && xml.documentElement.nodeName === "VideoAdServingTemplate") {
+            vastVersion = 1;
+          } else {
+            return cb();
+          }
         }
         _ref = xml.documentElement.childNodes;
         for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
@@ -583,7 +588,7 @@ VASTParser = (function() {
         for (_k = 0, _len2 = _ref1.length; _k < _len2; _k++) {
           node = _ref1[_k];
           if (node.nodeName === 'Ad') {
-            ad = _this.parseAdElement(node);
+            ad = _this.parseAdElement(node, vastVersion);
             if (ad != null) {
               response.ads.push(ad);
             } else {
@@ -703,7 +708,7 @@ VASTParser = (function() {
     return childs;
   };
 
-  VASTParser.parseAdElement = function(adElement) {
+  VASTParser.parseAdElement = function(adElement, version) {
     var adTypeElement, _i, _len, _ref;
     _ref = adElement.childNodes;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -711,7 +716,7 @@ VASTParser = (function() {
       if (adTypeElement.nodeName === "Wrapper") {
         return this.parseWrapperElement(adTypeElement);
       } else if (adTypeElement.nodeName === "InLine") {
-        return this.parseInLineElement(adTypeElement);
+        return this.parseInLineElement(adTypeElement, version);
       }
     }
   };
@@ -732,9 +737,12 @@ VASTParser = (function() {
     }
   };
 
-  VASTParser.parseInLineElement = function(inLineElement) {
-    var ad, creative, creativeElement, creativeTypeElement, node, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2;
+  VASTParser.parseInLineElement = function(inLineElement, version) {
+    var ad, childNode, creative, creativeElement, creativeTypeElement, creativeV1, node, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
     ad = new VASTAd();
+    if ((version != null) && version === 1) {
+      creativeV1 = new VASTCreativeLinear();
+    }
     _ref = inLineElement.childNodes;
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       node = _ref[_i];
@@ -743,15 +751,26 @@ VASTParser = (function() {
           ad.errorURLTemplates.push(this.parseNodeText(node));
           break;
         case "Impression":
-          ad.impressionURLTemplates.push(this.parseNodeText(node));
+          if ((version != null) && version === 1 && node.childNodes.length) {
+            _ref1 = node.childNodes;
+            for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+              childNode = _ref1[_j];
+              switch (childNode.nodeName) {
+                case "URL":
+                  ad.impressionURLTemplates.push((this.parseNodeText(childNode)).trim());
+              }
+            }
+          } else {
+            ad.impressionURLTemplates.push(this.parseNodeText(node));
+          }
           break;
         case "Creatives":
-          _ref1 = this.childsByName(node, "Creative");
-          for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-            creativeElement = _ref1[_j];
-            _ref2 = creativeElement.childNodes;
-            for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
-              creativeTypeElement = _ref2[_k];
+          _ref2 = this.childsByName(node, "Creative");
+          for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+            creativeElement = _ref2[_k];
+            _ref3 = creativeElement.childNodes;
+            for (_l = 0, _len3 = _ref3.length; _l < _len3; _l++) {
+              creativeTypeElement = _ref3[_l];
               switch (creativeTypeElement.nodeName) {
                 case "Linear":
                   creative = this.parseCreativeLinearElement(creativeTypeElement);
@@ -767,14 +786,54 @@ VASTParser = (function() {
               }
             }
           }
+          break;
+        case "TrackingEvents":
+          if (creativeV1 != null) {
+            creativeV1 = this.parseTrackingEventsElement(creativeV1, node);
+          }
+          break;
+        case "Video":
+          if (creativeV1 != null) {
+            creativeV1 = this.parseVideoElement(creativeV1, node);
+          }
       }
+    }
+    if (creativeV1 != null) {
+      ad.creatives.push(creativeV1);
     }
     return ad;
   };
 
   VASTParser.parseCreativeLinearElement = function(creativeElement) {
-    var creative, eventName, mediaFile, mediaFileElement, mediaFilesElement, percent, skipOffset, trackingElement, trackingEventsElement, trackingURLTemplate, videoClicksElement, _base, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3;
+    var creative;
     creative = new VASTCreativeLinear();
+    creative = this.parseVideoElement(creative, creativeElement);
+    creative = this.parseTrackingEventsElement(creative, this.childsByName(creativeElement, "TrackingEvents"));
+    return creative;
+  };
+
+  VASTParser.parseTrackingEventsElement = function(creative, trackingEventsElement) {
+    var eventName, trackingElement, trackingURLTemplate, _base, _i, _j, _len, _len1, _ref;
+    for (_i = 0, _len = trackingEventsElement.length; _i < _len; _i++) {
+      trackingEventsElement = trackingEventsElement[_i];
+      _ref = this.childsByName(trackingEventsElement, "Tracking");
+      for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
+        trackingElement = _ref[_j];
+        eventName = trackingElement.getAttribute("event");
+        trackingURLTemplate = this.parseNodeText(trackingElement);
+        if ((eventName != null) && (trackingURLTemplate != null)) {
+          if ((_base = creative.trackingEvents)[eventName] == null) {
+            _base[eventName] = [];
+          }
+          creative.trackingEvents[eventName].push(trackingURLTemplate);
+        }
+      }
+    }
+    return creative;
+  };
+
+  VASTParser.parseVideoElement = function(creative, creativeElement) {
+    var mediaFile, mediaFileElement, mediaFilesElement, percent, skipOffset, videoClicksElement, _i, _j, _len, _len1, _ref, _ref1;
     creative.duration = this.parseDuration(this.parseNodeText(this.childByName(creativeElement, "Duration")));
     if (creative.duration === -1 && creativeElement.parentNode.parentNode.parentNode.nodeName !== 'Wrapper') {
       return null;
@@ -793,28 +852,12 @@ VASTParser = (function() {
       creative.videoClickThroughURLTemplate = this.parseNodeText(this.childByName(videoClicksElement, "ClickThrough"));
       creative.videoClickTrackingURLTemplate = this.parseNodeText(this.childByName(videoClicksElement, "ClickTracking"));
     }
-    _ref = this.childsByName(creativeElement, "TrackingEvents");
+    _ref = this.childsByName(creativeElement, "MediaFiles");
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      trackingEventsElement = _ref[_i];
-      _ref1 = this.childsByName(trackingEventsElement, "Tracking");
+      mediaFilesElement = _ref[_i];
+      _ref1 = this.childsByName(mediaFilesElement, "MediaFile");
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-        trackingElement = _ref1[_j];
-        eventName = trackingElement.getAttribute("event");
-        trackingURLTemplate = this.parseNodeText(trackingElement);
-        if ((eventName != null) && (trackingURLTemplate != null)) {
-          if ((_base = creative.trackingEvents)[eventName] == null) {
-            _base[eventName] = [];
-          }
-          creative.trackingEvents[eventName].push(trackingURLTemplate);
-        }
-      }
-    }
-    _ref2 = this.childsByName(creativeElement, "MediaFiles");
-    for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
-      mediaFilesElement = _ref2[_k];
-      _ref3 = this.childsByName(mediaFilesElement, "MediaFile");
-      for (_l = 0, _len3 = _ref3.length; _l < _len3; _l++) {
-        mediaFileElement = _ref3[_l];
+        mediaFileElement = _ref1[_j];
         mediaFile = new VASTMediaFile();
         mediaFile.fileURL = this.parseNodeText(mediaFileElement);
         mediaFile.deliveryType = mediaFileElement.getAttribute("delivery");

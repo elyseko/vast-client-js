@@ -35,8 +35,12 @@ class VASTParser
 
             response = new VASTResponse()
 
+            vastVersion = 2
             unless xml?.documentElement? and xml.documentElement.nodeName is "VAST"
-                return cb()
+                if xml?.documentElement? and xml.documentElement.nodeName is "VideoAdServingTemplate"
+                    vastVersion = 1
+                else 
+                    return cb()
 
             for node in xml.documentElement.childNodes
                 if node.nodeName is 'Error'
@@ -44,7 +48,7 @@ class VASTParser
 
             for node in xml.documentElement.childNodes
                 if node.nodeName is 'Ad'
-                    ad = @parseAdElement node
+                    ad = @parseAdElement node, vastVersion
                     if ad?
                         response.ads.push ad
                     else
@@ -126,12 +130,12 @@ class VASTParser
         return childs
 
 
-    @parseAdElement: (adElement) ->
+    @parseAdElement: (adElement, version) ->
         for adTypeElement in adElement.childNodes
             if adTypeElement.nodeName is "Wrapper"
                 return @parseWrapperElement adTypeElement
             else if adTypeElement.nodeName is "InLine"
-                return @parseInLineElement adTypeElement
+                return @parseInLineElement adTypeElement, version
 
     @parseWrapperElement: (wrapperElement) ->
         ad = @parseInLineElement wrapperElement
@@ -146,16 +150,23 @@ class VASTParser
         if ad.nextWrapperURL?
             return ad
 
-    @parseInLineElement: (inLineElement) ->
+    @parseInLineElement: (inLineElement, version) ->
         ad = new VASTAd()
-
+        if version? and version is 1
+            creativeV1 = new VASTCreativeLinear()
         for node in inLineElement.childNodes
             switch node.nodeName
                 when "Error"
                     ad.errorURLTemplates.push (@parseNodeText node)
 
                 when "Impression"
-                    ad.impressionURLTemplates.push (@parseNodeText node)
+                    if version? and version is 1 and node.childNodes.length
+                        for childNode in node.childNodes
+                            switch childNode.nodeName
+                                when "URL"
+                                    ad.impressionURLTemplates.push ((@parseNodeText childNode).trim())
+                    else 
+                        ad.impressionURLTemplates.push (@parseNodeText node)
 
                 when "Creatives"
                     for creativeElement in @childsByName(node, "Creative")
@@ -171,12 +182,40 @@ class VASTParser
                                     creative = @parseCompanionAd creativeTypeElement
                                     if creative
                                         ad.creatives.push creative
+                when "TrackingEvents"
+                    if creativeV1?
+                        creativeV1 = @parseTrackingEventsElement creativeV1, node
+                when "Video"
+                    if creativeV1?
+                        creativeV1 = @parseVideoElement creativeV1, node
+                #when "CompanionAds"
+
+        if creativeV1?
+            ad.creatives.push creativeV1
 
         return ad
 
     @parseCreativeLinearElement: (creativeElement) ->
         creative = new VASTCreativeLinear()
 
+        creative = @parseVideoElement creative, creativeElement
+
+        creative = @parseTrackingEventsElement creative, @childsByName(creativeElement, "TrackingEvents")
+
+        return creative
+
+    @parseTrackingEventsElement: (creative, trackingEventsElement) ->
+        for trackingEventsElement in trackingEventsElement
+            for trackingElement in @childsByName(trackingEventsElement, "Tracking")
+                eventName = trackingElement.getAttribute("event")
+                trackingURLTemplate = @parseNodeText(trackingElement)
+                if eventName? and trackingURLTemplate?
+                    creative.trackingEvents[eventName] ?= []
+                    creative.trackingEvents[eventName].push trackingURLTemplate
+
+        return creative
+
+    @parseVideoElement: (creative, creativeElement) ->
         creative.duration = @parseDuration @parseNodeText(@childByName(creativeElement, "Duration"))
         if creative.duration == -1 and creativeElement.parentNode.parentNode.parentNode.nodeName != 'Wrapper'
             return null # can't parse duration, element is required
@@ -194,14 +233,6 @@ class VASTParser
             creative.videoClickThroughURLTemplate = @parseNodeText(@childByName(videoClicksElement, "ClickThrough"))
             creative.videoClickTrackingURLTemplate = @parseNodeText(@childByName(videoClicksElement, "ClickTracking"))
 
-        for trackingEventsElement in @childsByName(creativeElement, "TrackingEvents")
-            for trackingElement in @childsByName(trackingEventsElement, "Tracking")
-                eventName = trackingElement.getAttribute("event")
-                trackingURLTemplate = @parseNodeText(trackingElement)
-                if eventName? and trackingURLTemplate?
-                    creative.trackingEvents[eventName] ?= []
-                    creative.trackingEvents[eventName].push trackingURLTemplate
-
         for mediaFilesElement in @childsByName(creativeElement, "MediaFiles")
             for mediaFileElement in @childsByName(mediaFilesElement, "MediaFile")
                 mediaFile = new VASTMediaFile()
@@ -215,7 +246,6 @@ class VASTParser
                 mediaFile.width = parseInt mediaFileElement.getAttribute("width") or 0
                 mediaFile.height = parseInt mediaFileElement.getAttribute("height") or 0
                 creative.mediaFiles.push mediaFile
-
         return creative
 
     @parseCompanionAd: (creativeElement) ->
