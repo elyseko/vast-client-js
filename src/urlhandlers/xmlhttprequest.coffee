@@ -11,6 +11,8 @@ class XHRURLHandler
         xhr = @xhr()
         xhr.open('GET', url)
         xhr.send()
+        xhr.onprogress = ->
+            console.log "### xdr progress ###"
         xhr.onreadystatechange = ->
             if xhr.readyState == 4
                 cb(null, xhr.responseXML)
