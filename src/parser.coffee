@@ -154,6 +154,7 @@ class VASTParser
         ad = new VASTAd()
         if version? and version is 1
             creativeV1 = new VASTCreativeLinear()
+            creativeV1.creatives = [];
         for node in inLineElement.childNodes
             switch node.nodeName
                 when "Error"
@@ -187,8 +188,11 @@ class VASTParser
                         creativeV1 = @parseTrackingEventsElement creativeV1, node
                 when "Video"
                     if creativeV1?
-                        creativeV1 = @parseVideoElement creativeV1, node
-                #when "CompanionAds"
+                        creativeV1= @parseVideoElement creativeV1, node
+                when "CompanionAds"
+                    if creativeV1?
+                        creative =  @parseCompanionAd node
+                        ad.creatives.push creative
 
         if creativeV1?
             ad.creatives.push creativeV1
@@ -256,9 +260,24 @@ class VASTParser
             companionAd.id = companionResource.getAttribute("id") or null
             companionAd.width = companionResource.getAttribute("width")
             companionAd.height = companionResource.getAttribute("height")
-            for staticElement in @childsByName(companionResource, "StaticResource")
-                companionAd.type = staticElement.getAttribute("creativeType") or 0
-                companionAd.staticResource = @parseNodeText(staticElement)
+            companionAd.type = companionResource.getAttribute("resourceType")
+
+            if companionAd.type? && companionAd.type is 'HTML'
+                codeExists = @childsByName(companionResource, "Code")
+                urlExists = @childsByName(companionResource, "URL")
+                if codeExists? && codeExists.length
+                    for codeElement in @childsByName(companionResource, "Code")
+                        companionAd.staticResource = @parseNodeText(codeElement)
+                    console.log "has xml - code"
+                else if urlExists? && urlExists.length
+                    for urlElement in @childsByName(companionResource, "URL")
+                        companionAd.staticResource = @parseNodeText(urlElement)
+                   console.log "has xml url or other"
+            else
+                for staticElement in @childsByName(companionResource, "StaticResource")
+                    companionAd.type = staticElement.getAttribute("creativeType") or 0
+                    companionAd.staticResource = @parseNodeText(staticElement)
+
             for trackingEventsElement in @childsByName(companionResource, "TrackingEvents")
                 for trackingElement in @childsByName(trackingEventsElement, "Tracking")
                     eventName = trackingElement.getAttribute("event")
