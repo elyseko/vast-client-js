@@ -1234,6 +1234,9 @@ FlashURLHandler = (function() {
     }
     xdr = this.xdr();
     xdr.open('GET', url);
+    xdr.onprogress = function() {
+      return console.log("### xdr progress ###");
+    };
     xdr.send();
     return xdr.onload = function() {
       xmlDocument.loadXML(xdr.responseText);
@@ -1270,6 +1273,9 @@ XHRURLHandler = (function() {
     var xhr;
     xhr = this.xhr();
     xhr.open('GET', url);
+    xhr.onprogress = function() {
+      return console.log("### xdr progress ###");
+    };
     xhr.send();
     return xhr.onreadystatechange = function() {
       if (xhr.readyState === 4) {

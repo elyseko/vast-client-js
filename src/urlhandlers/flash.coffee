@@ -14,6 +14,8 @@ class FlashURLHandler
 
         xdr = @xdr()
         xdr.open('GET', url)
+        xdr.onprogress = ->
+            console.log "### xdr progress ###"
         xdr.send()
         xdr.onload = ->
              xmlDocument.loadXML(xdr.responseText)
