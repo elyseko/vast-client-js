@@ -262,19 +262,25 @@ class VASTParser
             companionAd.height = companionResource.getAttribute("height")
             companionAd.type = companionResource.getAttribute("resourceType")
 
-            if companionAd.type? && companionAd.type is 'HTML'
-                codeExists = @childsByName(companionResource, "Code")
-                urlExists = @childsByName(companionResource, "URL")
-                if codeExists? && codeExists.length
-                    for codeElement in @childsByName(companionResource, "Code")
-                        companionAd.staticResource = @parseNodeText(codeElement)
-                    console.log "has xml - code"
-                else if urlExists? && urlExists.length
-                    for urlElement in @childsByName(companionResource, "URL")
-                        companionAd.staticResource = @parseNodeText(urlElement)
-                   console.log "has xml url or other"
-            else
-                for staticElement in @childsByName(companionResource, "StaticResource")
+
+            codeItems = @childsByName(companionResource, "Code")
+            urlItems = @childsByName(companionResource, "URL")
+            staticItems = @childsByName(companionResource, "StaticResource")
+
+            if codeItems? && codeItems.length
+                for codeElement in codeItems
+                    companionAd.staticResource = @parseNodeText(codeElement)
+                if companionAd.type?
+                    companionAd.type = 'html'
+                # console.log "has xml - code"
+            else if urlItems? && urlItems.length
+                for urlElement in urlItems
+                    companionAd.staticResource = @parseNodeText(urlElement)
+                if companionAd.type?
+                    companionAd.type = 'html'
+               # console.log "has xml url or other"
+            else if staticItems? && staticItems.length
+                for staticElement in staticItems
                     companionAd.type = staticElement.getAttribute("creativeType") or 0
                     companionAd.staticResource = @parseNodeText(staticElement)
 

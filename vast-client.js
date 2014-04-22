@@ -882,7 +882,7 @@ VASTParser = (function() {
   };
 
   VASTParser.parseCompanionAd = function(creativeElement) {
-    var codeElement, codeExists, companionAd, companionResource, creative, eventName, staticElement, trackingElement, trackingEventsElement, trackingURLTemplate, urlElement, urlExists, _base, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _len5, _m, _n, _ref, _ref1, _ref2, _ref3, _ref4, _ref5;
+    var codeElement, codeItems, companionAd, companionResource, creative, eventName, staticElement, staticItems, trackingElement, trackingEventsElement, trackingURLTemplate, urlElement, urlItems, _base, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _len5, _m, _n, _ref, _ref1, _ref2;
     creative = new VASTCreativeCompanion();
     _ref = this.childsByName(creativeElement, "Companion");
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -892,38 +892,38 @@ VASTParser = (function() {
       companionAd.width = companionResource.getAttribute("width");
       companionAd.height = companionResource.getAttribute("height");
       companionAd.type = companionResource.getAttribute("resourceType");
-      if ((companionAd.type != null) && companionAd.type === 'HTML') {
-        codeExists = this.childsByName(companionResource, "Code");
-        urlExists = this.childsByName(companionResource, "URL");
-        if ((codeExists != null) && codeExists.length) {
-          _ref1 = this.childsByName(companionResource, "Code");
-          for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-            codeElement = _ref1[_j];
-            companionAd.staticResource = this.parseNodeText(codeElement);
-          }
-          console.log("has xml - code");
-        } else if ((urlExists != null) && urlExists.length) {
-          _ref2 = this.childsByName(companionResource, "URL");
-          for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
-            urlElement = _ref2[_k];
-            companionAd.staticResource = this.parseNodeText(urlElement);
-          }
+      codeItems = this.childsByName(companionResource, "Code");
+      urlItems = this.childsByName(companionResource, "URL");
+      staticItems = this.childsByName(companionResource, "StaticResource");
+      if ((codeItems != null) && codeItems.length) {
+        for (_j = 0, _len1 = codeItems.length; _j < _len1; _j++) {
+          codeElement = codeItems[_j];
+          companionAd.staticResource = this.parseNodeText(codeElement);
         }
-        console.log("has xml url or other");
-      } else {
-        _ref3 = this.childsByName(companionResource, "StaticResource");
-        for (_l = 0, _len3 = _ref3.length; _l < _len3; _l++) {
-          staticElement = _ref3[_l];
+        if (companionAd.type != null) {
+          companionAd.type = 'html';
+        }
+      } else if ((urlItems != null) && urlItems.length) {
+        for (_k = 0, _len2 = urlItems.length; _k < _len2; _k++) {
+          urlElement = urlItems[_k];
+          companionAd.staticResource = this.parseNodeText(urlElement);
+        }
+        if (companionAd.type != null) {
+          companionAd.type = 'html';
+        }
+      } else if ((staticItems != null) && staticItems.length) {
+        for (_l = 0, _len3 = staticItems.length; _l < _len3; _l++) {
+          staticElement = staticItems[_l];
           companionAd.type = staticElement.getAttribute("creativeType") || 0;
           companionAd.staticResource = this.parseNodeText(staticElement);
         }
       }
-      _ref4 = this.childsByName(companionResource, "TrackingEvents");
-      for (_m = 0, _len4 = _ref4.length; _m < _len4; _m++) {
-        trackingEventsElement = _ref4[_m];
-        _ref5 = this.childsByName(trackingEventsElement, "Tracking");
-        for (_n = 0, _len5 = _ref5.length; _n < _len5; _n++) {
-          trackingElement = _ref5[_n];
+      _ref1 = this.childsByName(companionResource, "TrackingEvents");
+      for (_m = 0, _len4 = _ref1.length; _m < _len4; _m++) {
+        trackingEventsElement = _ref1[_m];
+        _ref2 = this.childsByName(trackingEventsElement, "Tracking");
+        for (_n = 0, _len5 = _ref2.length; _n < _len5; _n++) {
+          trackingElement = _ref2[_n];
           eventName = trackingElement.getAttribute("event");
           trackingURLTemplate = this.parseNodeText(trackingElement);
           if ((eventName != null) && (trackingURLTemplate != null)) {
