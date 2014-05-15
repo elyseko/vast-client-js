@@ -1254,13 +1254,15 @@ FlashURLHandler = (function() {
   };
 
   FlashURLHandler.get = function(url, cb) {
-    var xdr, xmlDocument;
+    var ranNum, xdr, xmlDocument;
     if (xmlDocument = typeof window.ActiveXObject === "function" ? new window.ActiveXObject("Microsoft.XMLDOM") : void 0) {
       xmlDocument.async = false;
     } else {
       return cb();
     }
     xdr = this.xdr();
+    ranNum = Math.random() * 1000000;
+    url = [url, '?cachebreaker=', Math.round(ranNum)].join("");
     xdr.open('GET', url);
     xdr.onprogress = function() {
       return console.log("### xdr progress ###");
