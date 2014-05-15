@@ -1264,6 +1264,9 @@ FlashURLHandler = (function() {
     ranNum = Math.random() * 1000000;
     url = [url, '?cachebreaker=', Math.round(ranNum)].join("");
     xdr.open('GET', url);
+    xdr.onerror = function() {
+      return cb("load error");
+    };
     xdr.onprogress = function() {
       return console.log("### xdr progress ###");
     };
@@ -1303,6 +1306,9 @@ XHRURLHandler = (function() {
     var xhr;
     xhr = this.xhr();
     xhr.open('GET', url);
+    xhr.onerror = function() {
+      return cb("load error");
+    };
     xhr.onprogress = function() {
       return console.log("### xdr progress ###");
     };

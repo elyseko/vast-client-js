@@ -15,7 +15,10 @@ class FlashURLHandler
         xdr = @xdr()
         ranNum = Math.random() * 1000000
         url = [ url, '?cachebreaker=', Math.round ranNum ].join ""
+        
         xdr.open('GET', url)
+        xdr.onerror = ->
+            cb("load error")
         xdr.onprogress = ->
             console.log "### xdr progress ###"
         xdr.send()

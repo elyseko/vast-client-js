@@ -9,7 +9,10 @@ class XHRURLHandler
 
     @get: (url, cb) ->
         xhr = @xhr()
+       
         xhr.open('GET', url)
+        xhr.onerror = ->
+            cb("load error")
         xhr.onprogress = ->
             console.log "### xdr progress ###"
         xhr.send()
