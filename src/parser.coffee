@@ -265,20 +265,26 @@ class VASTParser
 
             codeItems = @childsByName(companionResource, "Code")
             urlItems = @childsByName(companionResource, "URL")
+            iframeItems = @childsByName(companionResource, "IFrameResource")
             staticItems = @childsByName(companionResource, "StaticResource")
 
             if codeItems? && codeItems.length
                 for codeElement in codeItems
                     companionAd.staticResource = @parseNodeText(codeElement)
-                if companionAd.type?
+                if !companionAd.type?
                     companionAd.type = 'html'
                 # console.log "has xml - code"
             else if urlItems? && urlItems.length
                 for urlElement in urlItems
                     companionAd.staticResource = @parseNodeText(urlElement)
-                if companionAd.type?
+                if !companionAd.type?
                     companionAd.type = 'html'
                # console.log "has xml url or other"
+            else if iframeItems? && iframeItems.length
+                for iframeElement in iframeItems
+                    companionAd.staticResource = @parseNodeText(iframeElement)
+                if !companionAd.type?
+                    companionAd.type = 'iframe'
             else if staticItems? && staticItems.length
                 for staticElement in staticItems
                     companionAd.type = staticElement.getAttribute("creativeType") or 0
